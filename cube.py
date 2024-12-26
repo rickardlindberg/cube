@@ -6,26 +6,26 @@
                    |/
                    O------> x
 
->>> Piece.unit().extend_z().extend_y().extend_x().print()
+>>> Body.unit().extend_z().extend_y().extend_x().print()
 y     z     y
-|##   |##   | #
-|#    |#    |##
+|11   |21   | 2
+|2    |1    |11
 +--x  +--x  +--z
 
->>> Piece.unit().extend_x().back().extend_y().back().extend_z().print()
+>>> Body.unit().extend_x().back().extend_y().back().extend_z().print()
 y     z     y
-|#    |#    |#
-|##   |##   |##
+|1    |1    |1
+|21   |21   |21
 +--x  +--x  +--z
 """
 
 import collections
 
-class Piece:
+class Body:
 
     @classmethod
     def unit(cls):
-        return Piece(points=Points([Point3D.origin()]))
+        return Body(points=Points([Point3D.origin()]))
 
     def __init__(self, points):
         self.points = points
@@ -40,10 +40,10 @@ class Piece:
         return self.extend(dz=1)
 
     def back(self):
-        return Piece(self.points.swap_last())
+        return Body(self.points.swap_last())
 
     def extend(self, **kwargs):
-        return Piece(self.points.extend(**kwargs).normalize())
+        return Body(self.points.extend(**kwargs).normalize())
 
     def print(self):
         grid = Grid()
@@ -54,19 +54,21 @@ class Piece:
             ("z", "y", lambda point: point.zy()),
         ]:
             plane_points = self.points.filter(fn)
-            max_plane_point = plane_points.max()
+            max_plane_point = plane_points.bounding_max()
             grid.add(origin, "+")
             for vertical in max_plane_point.rows():
-                vertical = vertical.set(x=0).move(origin).add(dy=1)
+                vertical = vertical.set(x=0).add(origin).move(dy=1)
                 grid.add(vertical, "|")
-            grid.add(vertical.add(dy=1), vertical_axis_name)
+            grid.add(vertical.move(dy=1), vertical_axis_name)
             for horizontal in max_plane_point.columns():
-                horizontal = horizontal.set(y=0).move(origin).add(dx=1)
+                horizontal = horizontal.set(y=0).add(origin).move(dx=1)
                 grid.add(horizontal, "-")
-            grid.add(horizontal.add(dx=1), horizontal_axis_name)
+            grid.add(horizontal.move(dx=1), horizontal_axis_name)
             for point in plane_points:
-                grid.add(point.move(origin).add(dx=1, dy=1), "#")
-            origin = origin.add(dx=max_plane_point.x+5)
+                count = plane_points.count(point)
+                assert 1 <= count <= 9
+                grid.add(point.add(origin).move(dx=1, dy=1), str(count))
+            origin = origin.move(dx=max_plane_point.x+5)
         grid.print()
 
 class Points:
@@ -77,6 +79,9 @@ class Points:
     def __iter__(self):
         return iter(list(self.points))
 
+    def count(self, point):
+        return len([x for x in self.points if x == point])
+
     def swap_last(self):
         return Points(self.points[:-2]+self.points[-2:][::-1])
 
@@ -86,38 +91,35 @@ class Points:
         ]).normalize()
 
     def normalize(self):
-        delta = self.min().multiply(-1)
+        delta = self.bounding_min().multiply(-1)
         return Points([
-            point.move(delta)
+            point.add(delta)
             for point in self.points
         ])
 
-    def min(self):
+    def bounding_min(self):
         min_point = None
         for point in self.points:
             if min_point is None:
                 min_point = point
             else:
-                min_point = min_point.min(point)
+                min_point = min_point.bounding_min(point)
         return min_point
 
-    def max(self):
+    def bounding_max(self):
         max_point = None
         for point in self.points:
             if max_point is None:
                 max_point = point
             else:
-                max_point = max_point.max(point)
+                max_point = max_point.bounding_max(point)
         return max_point
-
-    def get(self):
-        return list(self.points)
 
     def add(self, point):
         return Points(self.points+[point])
 
     def extend(self, **kwargs):
-        return self.add(self.points[-1].add(**kwargs))
+        return self.add(self.points[-1].move(**kwargs))
 
 class Point3D(collections.namedtuple("Point3D", ["x", "y", "z"])):
 
@@ -125,15 +127,15 @@ class Point3D(collections.namedtuple("Point3D", ["x", "y", "z"])):
     def origin(cls):
         return cls(x=0, y=0, z=0)
 
-    def min(self, other):
+    def bounding_min(self, other):
         return Point3D(
             x=min(self.x, other.x),
             y=min(self.y, other.y),
             z=min(self.z, other.z),
         )
 
-    def move(self, other):
-        return self.add(dx=other.x, dy=other.y, dz=other.z)
+    def add(self, other):
+        return self.move(dx=other.x, dy=other.y, dz=other.z)
 
     def multiply(self, factor):
         return Point3D(
@@ -151,15 +153,15 @@ class Point3D(collections.namedtuple("Point3D", ["x", "y", "z"])):
     def zy(self):
         return Point2D(x=self.z, y=self.y)
 
-    def add(self, dx=0, dy=0, dz=0):
+    def move(self, dx=0, dy=0, dz=0):
         return Point3D(x=self.x+dx, y=self.y+dy, z=self.z+dz)
 
 class Point2D(collections.namedtuple("Point2D", ["x", "y"])):
 
-    def min(self, other):
+    def bounding_min(self, other):
         return Point2D(x=min(self.x, other.x), y=min(self.y, other.y))
 
-    def max(self, other):
+    def bounding_max(self, other):
         return Point2D(x=max(self.x, other.x), y=max(self.y, other.y))
 
     def set(self, **kwargs):
@@ -168,10 +170,10 @@ class Point2D(collections.namedtuple("Point2D", ["x", "y"])):
     def multiply(self, factor):
         return Point2D(x=factor*self.x, y=factor*self.y)
 
-    def move(self, other):
-        return Point2D(x=self.x+other.x, y=self.y+other.y)
+    def add(self, other):
+        return self.move(dx=other.x, dy=other.y)
 
-    def add(self, dx=0, dy=0):
+    def move(self, dx=0, dy=0):
         return self._replace(x=self.x+dx, y=self.y+dy)
 
     def rows(self):
@@ -192,7 +194,7 @@ class Grid:
 
     def print(self):
         points = Points(self.values)
-        for row_point in reversed(list(points.max().rows())):
+        for row_point in reversed(list(points.bounding_max().rows())):
             line = []
             for column_point in row_point.columns():
                 line.append(self.values.get(column_point, " "))
