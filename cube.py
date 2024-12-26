@@ -17,6 +17,21 @@ y     z     y
 |1    |1    |1
 |21   |21   |21
 +--x  +--x  +--z
+
+>>> L.print()
++
++
+++
+
+>>> C.print()
+++
++
+++
+
+>>> PLUS.print()
+ +
++++
+ +
 """
 
 import collections
@@ -69,6 +84,27 @@ class Body:
                 assert 1 <= count <= 9
                 grid.add(point.add(origin).move(dx=1, dy=1), str(count))
             origin = origin.move(dx=max_plane_point.x+5)
+        grid.print()
+
+class Shape:
+
+    @classmethod
+    def from_ascii(cls, text):
+        points = []
+        for y, line in enumerate(text.splitlines()):
+            for x, char in enumerate(line):
+                if char == "#":
+                    points.append(Point2D(x, -y))
+        return Shape(Points(points).normalize())
+
+    def __init__(self, points):
+        self.points = list(points)
+
+    def print(self):
+        grid = Grid()
+        origin = Point2D(x=0, y=0)
+        for point in self.points:
+            grid.add(point, "+")
         grid.print()
 
 class Points:
@@ -199,6 +235,24 @@ class Grid:
             for column_point in row_point.columns():
                 line.append(self.values.get(column_point, " "))
             print("".join(line).rstrip())
+
+L = Shape.from_ascii("""
+#
+#
+##
+""")
+
+C = Shape.from_ascii("""
+##
+#
+##
+""")
+
+PLUS = Shape.from_ascii("""
+ #
+###
+ #
+""")
 
 if __name__ == "__main__":
     import doctest
