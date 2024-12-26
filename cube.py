@@ -19,14 +19,14 @@ y     z     y
 +--x  +--x  +--z
 
 >>> L.print()
-+
-+
-++
+L
+L
+LL
 
 >>> C.print()
-++
-+
-++
+CC
+C
+CC
 
 >>> PLUS.print()
  +
@@ -89,22 +89,24 @@ class Body:
 class Shape:
 
     @classmethod
-    def from_ascii(cls, text):
+    def from_ascii(cls, name, text):
         points = []
-        for y, line in enumerate(text.splitlines()):
+        for y, line in enumerate(reversed(text.splitlines())):
             for x, char in enumerate(line):
                 if char == "#":
-                    points.append(Point2D(x, -y))
-        return Shape(Points(points).normalize())
+                    points.append(Point2D(x, y))
+        return Shape(name, Points(points).normalize())
 
-    def __init__(self, points):
+    def __init__(self, name, points):
+        self.name = name
         self.points = list(points)
+        assert len(name) == 1
 
     def print(self):
         grid = Grid()
         origin = Point2D(x=0, y=0)
         for point in self.points:
-            grid.add(point, "+")
+            grid.add(point, self.name)
         grid.print()
 
 class Points:
@@ -236,19 +238,19 @@ class Grid:
                 line.append(self.values.get(column_point, " "))
             print("".join(line).rstrip())
 
-L = Shape.from_ascii("""
+L = Shape.from_ascii("L", """
 #
 #
 ##
 """)
 
-C = Shape.from_ascii("""
+C = Shape.from_ascii("C", """
 ##
 #
 ##
 """)
 
-PLUS = Shape.from_ascii("""
+PLUS = Shape.from_ascii("+", """
  #
 ###
  #
