@@ -18,23 +18,46 @@ y     z     y
 |21   |21   |21
 +--x  +--x  +--z
 
->>> L.print()
-L
-L
-LL
+>>> L.variations().print()
+L    L            LL  LL
+L    L    L  L     L  L   LLL  LLL
+LL  LL  LLL  LLL   L  L   L      L
 
->>> C.print()
-CC
-C
-CC
+>>> C.variations().print()
+CC  CC
+C    C  C C  CCC
+CC  CC  CCC  C C
 
->>> PLUS.print()
+>>> PLUS.variations().print()
  +
 +++
  +
+
+>>> I.variations().print()
+       I
+       I
+       I
+       I
+IIIII  I
 """
 
 import collections
+
+class Variations:
+
+    def __init__(self):
+        self.variations = []
+
+    def add(self, new_variation):
+        if new_variation not in self.variations:
+            self.variations.append(new_variation) 
+
+    def print(self):
+        grid = Grid()
+        for variation in self.variations:
+            variation.add_to_grid(grid)
+            grid.offset(dx=variation.max_x()+3)
+        grid.print()
 
 class Body:
 
@@ -99,15 +122,38 @@ class Shape:
 
     def __init__(self, name, points):
         self.name = name
-        self.points = list(points)
+        self.points = points
         assert len(name) == 1
+
+    def __eq__(self, other):
+        return self.name == other.name and self.points == other.points
+
+    def max_x(self):
+        return self.points.max_x()
+
+    def variations(self):
+        variations = Variations()
+        start = self
+        for _ in range(4):
+            variations.add(start)
+            variations.add(start.flip_x())
+            start = start.rotate()
+        return variations
+
+    def rotate(self):
+        return Shape(name=self.name, points=self.points.rotate().normalize())
+
+    def flip_x(self):
+        return Shape(name=self.name, points=self.points.flip_x().normalize())
 
     def print(self):
         grid = Grid()
-        origin = Point2D(x=0, y=0)
+        self.add_to_grid(grid)
+        grid.print()
+
+    def add_to_grid(self, grid):
         for point in self.points:
             grid.add(point, self.name)
-        grid.print()
 
 class Points:
 
@@ -116,6 +162,12 @@ class Points:
 
     def __iter__(self):
         return iter(list(self.points))
+
+    def __eq__(self, other):
+        return set(self.points) == set(other.points)
+
+    def max_x(self):
+        return max(point.x for point in self.points)
 
     def count(self, point):
         return len([x for x in self.points if x == point])
@@ -127,6 +179,16 @@ class Points:
         return Points([
             fn(point) for point in self.points
         ]).normalize()
+
+    def rotate(self):
+        return Points([
+            point.rotate() for point in self.points
+        ])
+
+    def flip_x(self):
+        return Points([
+            point.flip_x() for point in self.points
+        ])
 
     def normalize(self):
         delta = self.bounding_min().multiply(-1)
@@ -196,6 +258,12 @@ class Point3D(collections.namedtuple("Point3D", ["x", "y", "z"])):
 
 class Point2D(collections.namedtuple("Point2D", ["x", "y"])):
 
+    def rotate(self):
+        return Point2D(x=-self.y, y=self.x)
+
+    def flip_x(self):
+        return self._replace(x=-self.x)
+
     def bounding_min(self, other):
         return Point2D(x=min(self.x, other.x), y=min(self.y, other.y))
 
@@ -226,9 +294,13 @@ class Grid:
 
     def __init__(self):
         self.values = {}
+        self.offset_point = Point2D(x=0, y=0)
+
+    def offset(self, dx=0, dy=0):
+        self.offset_point = self.offset_point.move(dx=dx, dy=dy)
 
     def add(self, point, char):
-        self.values[point] = char
+        self.values[point.add(self.offset_point)] = char
 
     def print(self):
         points = Points(self.values)
@@ -254,6 +326,10 @@ PLUS = Shape.from_ascii("+", """
  #
 ###
  #
+""")
+
+I = Shape.from_ascii("I", """
+#####
 """)
 
 if __name__ == "__main__":
